@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Solo-Leveling Smart AI Coach</title>
+<style>
+  body{font-family:sans-serif;padding:12px;max-width:720px;margin:auto}
+  input,button,textarea{width:100%;padding:8px;margin:6px 0}
+  .task{border:1px solid #ddd;padding:8px;margin:8px 0;border-radius:6px}
+</style>
+</head>
+<body>
+<h2>Solo-Leveling Smart AI Coach — Demo</h2>
+<p>টাস্ক যোগ করুন (ISO সময়): উদাহরণ — 2025-11-07T21:30:00</p>
+<input id="title" placeholder="কাজের শিরোনাম (বাংলা)">
+<input id="due" placeholder="Due (ISO) যেমন: 2025-11-07T21:30:00">
+<button onclick="addTask()">টাস্ক যোগ করুন</button>
+
+<h3>টাস্ক তালিকা</h3>
+<div id="tasks">লোড হচ্ছে...</div>
+
+<hr/>
+<h3>Chat (Optional)</h3>
+<textarea id="prompt" rows="2" placeholder="প্রশ্ন লিখুন (বাংলায়)"></textarea>
+<button onclick="ask()">প্রশ্ন করো</button>
+<div id="answer"></div>
+
+<script>
+const apiBase = location.origin;
+const token = ''  // if you set API_TOKEN, you can add "x-api-key" header in fetch calls
+
+async function fetchList(){
+  let headers = {};
+  if(token) headers['x-api-key'] = token;
+  let res = await fetch(apiBase + '/api/list', {headers});
+  let j = await res.json();
+  let html = '';
+  j.tasks.forEach((t, idx) => {
+    html += `<div class="task">
+      <b>${t.title}</b><br/>
+      Due: ${t.due}<br/>
+      Done: ${t.done} | Nudges: ${t.nudges}<br/>
+      <button onclick="complete(${t.doc_id})">Complete</button>
+      ${t.audio ? `<button onclick="playAudio('${t.audio}')">Play last audio</button>` : ''}
+    </div>`;
+  });
+  document.getElementById('tasks').innerHTML = html || 'কোনো টাস্ক নেই';
+}
+
+async function addTask(){
+  const title = document.getElementById('title').value;
+  const due = document.getElementById('due').value;
+  if(!title||!due){ alert('শিরোনাম ও সময় লাগবে'); return; }
+  await fetch(apiBase + '/api/add_task', {method:'POST',headers:{'Content-Type':'application/json', 'x-api-key': token},body:JSON.stringify({title,due})});
+  document.getElementById('title').value=''; document.getElementById('due').value='';
+  fetchList();
+}
+
+async function complete(id){
+  await fetch(apiBase + '/api/complete', {method:'POST',headers:{'Content-Type':'application/json', 'x-api-key': token},body:JSON.stringify({doc_id:id})});
+  fetchList();
+}
+
+function playAudio(path){
+  const a = new Audio(path);
+  a.play();
+}
+
+async function ask(){
+  const p = document.getElementById('prompt').value;
+  const res = await fetch(apiBase + '/api/ask', {method:'POST', headers:{'Content-Type':'application/json', 'x-api-key': token}, body: JSON.stringify({prompt: p, lang:'bn'})});
+  const j = await res.json();
+  document.getElementById('answer').innerText = j.answer || j.error || JSON.stringify(j);
+  if(j.audio){ playAudio(j.audio); }
+}
+
+setInterval(fetchList, 5000);
+fetchList();
+</script>
+</body>
+</html>
